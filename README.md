@@ -27,7 +27,14 @@ To delete and recreate the vector collection, run `python index.py --rebuild`. T
 - `app.py` provides the Streamlit chat interface and source references.
 - `docker-compose.yml` runs the Qdrant vector database.
 
-The API key is read from `.env`; do not commit real credentials.
+The OpenAI and optional Qdrant API keys are read from `.env`; do not commit real credentials.
+
+To index the PDF into Qdrant Cloud, set `OPENAI_API_KEY`, `QDRANT_URL`, and
+`QDRANT_API_KEY` in your ignored local `.env` file, then run `python index.py`.
+The indexer uploads the PDF's extracted text chunks and embeddings to Qdrant;
+the original PDF remains a separate file and is not stored as a PDF inside the
+vector database. After indexing, configure the same Qdrant URL and API key in
+Streamlit Cloud app secrets so the deployed tutor can retrieve those chunks.
 
 ## Streamlit Community Cloud
 

@@ -1,4 +1,5 @@
 import argparse
+import os
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -16,7 +17,6 @@ BASE_DIR = Path(__file__).resolve().parent
 
 PDF_PATH = BASE_DIR / "Basic_german.pdf"
 
-QDRANT_URL = "http://localhost:6333"
 COLLECTION_NAME = "German_Basics"
 
 EMBEDDING_MODEL = "text-embedding-3-large"
@@ -39,7 +39,14 @@ args = parser.parse_args()
 
 # ---------------- ENVIRONMENT ----------------
 
-load_dotenv()
+load_dotenv(BASE_DIR / ".env")
+
+qdrant_url = os.getenv("QDRANT_URL", "http://localhost:6333")
+qdrant_api_key = os.getenv("QDRANT_API_KEY")
+openai_api_key = os.getenv("OPENAI_API_KEY")
+
+if not openai_api_key:
+    raise RuntimeError("OPENAI_API_KEY is missing from the environment or .env file.")
 
 if not PDF_PATH.exists():
     raise FileNotFoundError(f"PDF not found: {PDF_PATH}")
@@ -81,7 +88,8 @@ print(f"Unique chunks: {len(chunks)}")
 # ---------------- EMBEDDINGS ----------------
 
 embedding_model = OpenAIEmbeddings(
-    model=EMBEDDING_MODEL
+    model=EMBEDDING_MODEL,
+    api_key=openai_api_key,
 )
 
 
@@ -92,9 +100,10 @@ print("Creating Qdrant vector store...")
 vectorstore = QdrantVectorStore.from_documents(
     documents=chunks,
     embedding=embedding_model,
-    url=QDRANT_URL,
+    url=qdrant_url,
     collection_name=COLLECTION_NAME,
     ids=chunk_ids,
+    api_key=qdrant_api_key,
     force_recreate=args.rebuild,
 )
 
