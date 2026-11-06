@@ -1,0 +1,30 @@
+# German Grammar RAG Tutor
+
+A German grammar tutor that retrieves relevant passages from a PDF knowledge base and generates explanations with OpenAI. It includes a Streamlit chat interface, Qdrant vector storage, duplicate-chunk filtering, and source references showing both printed book labels and PDF viewer page numbers.
+
+## Requirements
+
+- Python 3.9 or newer
+- Docker with Docker Compose
+- An OpenAI API key
+
+## Setup
+
+1. Create and activate a virtual environment.
+2. Install dependencies with `pip install -r requirements.txt`.
+3. Copy `.env.example` to `.env` and add your OpenAI API key.
+4. Start Qdrant with `docker compose up -d`.
+5. Index the included PDF with `python index.py`.
+6. Launch the tutor with `streamlit run app.py` and open the local URL shown by Streamlit.
+
+To delete and recreate the vector collection, run `python index.py --rebuild`. This re-embeds the PDF and may incur OpenAI API usage costs.
+
+## Project files
+
+- `index.py` loads and chunks the PDF, creates embeddings, and stores them in Qdrant.
+- `dedupe.py` removes duplicate chunks and retrieval results.
+- `retrive.py` provides a command-line retrieval and answer flow.
+- `app.py` provides the Streamlit chat interface and source references.
+- `docker-compose.yml` runs the Qdrant vector database.
+
+The API key is read from `.env`; do not commit real credentials.
