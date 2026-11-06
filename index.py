@@ -1,33 +1,105 @@
-from dotenv import load_dotenv
+import argparse
 from pathlib import Path
+
+from dotenv import load_dotenv
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_openai import OpenAIEmbeddings
 from langchain_qdrant import QdrantVectorStore
 
+from dedupe import unique_documents
+
+
+# ---------------- CONFIGURATION ----------------
+
+BASE_DIR = Path(__file__).resolve().parent
+
+PDF_PATH = BASE_DIR / "Basic_german.pdf"
+
+QDRANT_URL = "http://localhost:6333"
+COLLECTION_NAME = "German_Basics"
+
+EMBEDDING_MODEL = "text-embedding-3-large"
+
+
+# ---------------- ARGUMENTS ----------------
+
+parser = argparse.ArgumentParser(
+    description="Index the German grammar PDF."
+)
+
+parser.add_argument(
+    "--rebuild",
+    action="store_true",
+    help="Delete and recreate the Qdrant collection."
+)
+
+args = parser.parse_args()
+
+
+# ---------------- ENVIRONMENT ----------------
+
 load_dotenv()
-#------------------------------LOADING DOCUMENTS--------------------------------
-pdf_path = Path(__file__).parent / "Basic_german.pdf"
-loader = PyPDFLoader(file_path=pdf_path)
+
+if not PDF_PATH.exists():
+    raise FileNotFoundError(f"PDF not found: {PDF_PATH}")
+
+
+# ---------------- DOCUMENT LOADING ----------------
+
+print("Loading German grammar PDF...")
+
+loader = PyPDFLoader(file_path=str(PDF_PATH))
+
 docs = loader.load()
 
-#split document text into chunks (CHUNKING PHASE) ------------------------------
-text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=400)
-chunks = text_splitter.split_documents(documents=docs)
+print(f"Loaded {len(docs)} PDF pages.")
 
-#----------------------------VECTOR EMBEDDINGS---------------------------------
-embedding_model = OpenAIEmbeddings(
-    model="text-embedding-3-large"
+
+# ---------------- TEXT CHUNKING ----------------
+
+print("Splitting documents into chunks...")
+
+text_splitter = RecursiveCharacterTextSplitter(
+    chunk_size=800,
+    chunk_overlap=100,
+    separators=["\n\n", "\n", ". ", " ", ""]
 )
+
+chunks = text_splitter.split_documents(docs)
+
+print(f"Generated {len(chunks)} chunks.")
+
+
+# ---------------- DUPLICATE REMOVAL ----------------
+
+chunks, chunk_ids = unique_documents(chunks)
+
+print(f"Unique chunks: {len(chunks)}")
+
+
+# ---------------- EMBEDDINGS ----------------
+
+embedding_model = OpenAIEmbeddings(
+    model=EMBEDDING_MODEL
+)
+
+
+# ---------------- QDRANT VECTOR STORE ----------------
+
+print("Creating Qdrant vector store...")
 
 vectorstore = QdrantVectorStore.from_documents(
     documents=chunks,
     embedding=embedding_model,
-    url="http://localhost:6333",
-    collection_name="German_Basics"
-    )
+    url=QDRANT_URL,
+    collection_name=COLLECTION_NAME,
+    ids=chunk_ids,
+    force_recreate=args.rebuild,
+)
 
-print("Vector store created and documents embedded successfully.")
+print("\nIndexing completed successfully!")
 
-#SUMMERY:
-# LOAD file ------> CHUNKS ------> EMBEDDING_Model ------> VECTOR STORE (provide chunk, embeding_model, url, collection_name)
+print(f"Total unique chunks stored: {len(chunks)}")
+
+print(f"Collection: {COLLECTION_NAME}")
