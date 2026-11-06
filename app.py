@@ -1,7 +1,7 @@
 import os
 from html import escape
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 import streamlit as st
 from dotenv import load_dotenv
@@ -9,17 +9,35 @@ from langchain_openai import OpenAIEmbeddings
 from langchain_qdrant import QdrantVectorStore
 from openai import OpenAI
 from pypdf import PdfReader
+from streamlit.errors import StreamlitSecretNotFoundError
 
 from dedupe import unique_search_results
 
 
 BASE_DIR = Path(__file__).resolve().parent
-QDRANT_URL = "http://localhost:6333"
 COLLECTION_NAME = "German_Basics"
 EMBEDDING_MODEL = "text-embedding-3-large"
 LLM_MODEL = "gpt-4o-mini"
 
 load_dotenv(BASE_DIR / ".env")
+
+
+def get_setting(name: str, default: Optional[str] = None) -> Optional[str]:
+    """Read configuration from environment variables or Streamlit secrets."""
+    value = os.getenv(name)
+    if value:
+        return value
+
+    try:
+        value = st.secrets.get(name)
+    except StreamlitSecretNotFoundError:
+        value = None
+
+    return str(value) if value else default
+
+
+QDRANT_URL = get_setting("QDRANT_URL", "http://localhost:6333")
+QDRANT_API_KEY = get_setting("QDRANT_API_KEY")
 
 st.set_page_config(
     page_title="Grammatik · German Tutor",
@@ -136,6 +154,7 @@ def get_rag_resources(api_key: str) -> tuple[OpenAI, QdrantVectorStore]:
         embedding=embeddings,
         url=QDRANT_URL,
         collection_name=COLLECTION_NAME,
+        api_key=QDRANT_API_KEY,
     )
     return OpenAI(api_key=api_key), store
 
@@ -279,9 +298,13 @@ if question:
     with st.chat_message("user"):
         st.markdown(question)
 
-    api_key = os.getenv("OPENAI_API_KEY")
+    api_key = get_setting("OPENAI_API_KEY")
     if not api_key:
-        error_message = "Add OPENAI_API_KEY to your .env file, then restart the app."
+        error_message = (
+            "OpenAI API key is not configured. In Streamlit Cloud, open your app's "
+            "Settings → Secrets and add OPENAI_API_KEY = \"your-key\". "
+            "For local use, add OPENAI_API_KEY to .env."
+        )
         with st.chat_message("assistant"):
             st.error(error_message)
         st.session_state.messages.append({"role": "assistant", "content": error_message})
@@ -307,7 +330,9 @@ if question:
                 except Exception as error:
                     st.error(
                         "Couldn't reach the tutor services. Check that Qdrant is running, "
-                        "the collection has been indexed, and your OpenAI key is valid."
+                        "the collection has been indexed, and your OpenAI key is valid. "
+                        "For cloud deployment, configure QDRANT_URL and, if required, QDRANT_API_KEY "
+                        "in Streamlit Cloud → App settings → Secrets."
                     )
                     st.caption(f"Details: {error}")
                     st.session_state.messages.append(

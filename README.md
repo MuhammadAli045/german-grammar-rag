@@ -28,3 +28,19 @@ To delete and recreate the vector collection, run `python index.py --rebuild`. T
 - `docker-compose.yml` runs the Qdrant vector database.
 
 The API key is read from `.env`; do not commit real credentials.
+
+## Streamlit Community Cloud
+
+In the deployed app, open **Manage app → Settings → Secrets** and add the
+following TOML values using your own credentials:
+
+```toml
+OPENAI_API_KEY = "your-openai-api-key"
+QDRANT_URL = "https://your-qdrant-instance"
+QDRANT_API_KEY = "your-qdrant-api-key"
+```
+
+`QDRANT_API_KEY` may be omitted if your hosted Qdrant instance does not require
+one. A cloud-hosted app cannot connect to `localhost` on your computer, so
+`QDRANT_URL` must point to a reachable hosted Qdrant instance. The collection
+must also be populated with the indexed PDF chunks.
